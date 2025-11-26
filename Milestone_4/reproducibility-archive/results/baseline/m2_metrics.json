@@ -1,0 +1,24 @@
+{
+  "measurability": {
+    "energy": 0.72,
+    "exploration": 0.56,
+    "affinity": 0.20
+  },
+  "correlation": {
+    "energy-exploration": 0.70,
+    "energy-affinity": 0.50,
+    "exploration-affinity": 0.30
+  },
+  "test_results": {
+    "total_tests": 19,
+    "passed": 19,
+    "failed": 0,
+    "pass_rate": 1.0
+  },
+  "metadata": {
+    "hyperon_version": "0.2.1",
+    "python_version": "3.12",
+    "date_generated": "2025-10-05",
+    "tolerance": 0.01
+  }
+}

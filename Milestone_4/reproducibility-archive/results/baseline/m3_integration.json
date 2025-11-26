@@ -1,0 +1,49 @@
+{
+  "m2_to_m3_data_flow": {
+    "novelty_score": {
+      "energy": {
+        "measurability": 0.72,
+        "novelty": 0.11,
+        "formula": "(1 - measurability) * 0.4"
+      },
+      "affinity": {
+        "measurability": 0.20,
+        "novelty": 0.32,
+        "formula": "(1 - measurability) * 0.4"
+      }
+    },
+    "uncertainty_boost": {
+      "energy": {
+        "measurability": 0.72,
+        "boost": 0.0,
+        "reason": "measurability >= 0.3"
+      },
+      "affinity": {
+        "measurability": 0.20,
+        "boost": 0.3,
+        "reason": "measurability < 0.3"
+      }
+    },
+    "coherence_adjustment": {
+      "energy_exploration": {
+        "correlation": 0.70,
+        "boost": 0.1,
+        "reason": "correlation > 0.5"
+      },
+      "exploration_affinity": {
+        "correlation": 0.30,
+        "boost": 0.0,
+        "reason": "correlation <= 0.5"
+      }
+    }
+  },
+  "test_results": {
+    "integration_verified": true,
+    "m2_functions_accessible": true,
+    "data_flow_working": true
+  },
+  "metadata": {
+    "date_generated": "2025-10-05",
+    "test_framework": "manual verification"
+  }
+}

@@ -1,0 +1,280 @@
+;; MAGUS Milestone 3: Anti-goals Module (Refined)
+;; Provides hard/soft constraints with multiplicative discouragement
+;; Includes default Energy Efficiency and Risk Avoidance anti-goals
+;; Based on Milestone-3-Spec.md requirements and M3-Refinement-Plan.md
+
+;; Import shared types
+!(load types.metta)
+
+;; =============================================================================
+;; Default Anti-goals with Configurable Thresholds
+;; =============================================================================
+
+;; Configuration parameters
+(= (energy-threshold) 15)
+(= (risk-threshold) 0.6)
+
+;; Energy Efficiency anti-goal - discourages high energy cost actions
+(= (energy-efficiency-antigoal)
+   (anti-goal energy-efficiency Soft energy-penalty))
+
+;; Energy penalty function with configurable threshold
+(: energy-penalty (-> Context Candidate Number))
+(= (energy-penalty $context (action-candidate (action $name $params)))
+   (let (($cost (estimate-energy-cost $name $params)))
+     (if (> $cost (energy-threshold))
+         (* 0.5 (/ (energy-threshold) $cost))  ;; Multiplicative factor
+         1.0)))  ;; No penalty
+(= (energy-penalty $context (goal-candidate $goal))
+   1.0)  ;; Goals don't have direct energy cost
+
+;; Estimate energy cost of an action
+(: estimate-energy-cost (-> Symbol (List $a) Number))
+(= (estimate-energy-cost move $_) 10)
+(= (estimate-energy-cost attack $_) 20)
+(= (estimate-energy-cost wait $_) 1)
+(= (estimate-energy-cost teleport $_) 50)
+(= (estimate-energy-cost explore $_) 15)
+(= (estimate-energy-cost $other $_) 5)  ;; Default cost
+
+;; Risk Avoidance anti-goal - discourages actions with high negative outcome potential
+(= (risk-avoidance-antigoal)
+   (anti-goal risk-avoidance Soft risk-penalty))
+
+;; Risk penalty function with configurable threshold
+(: risk-penalty (-> Context Candidate Number))
+(= (risk-penalty $context (action-candidate (action $name $params)))
+   (let (($risk (estimate-risk $name $params $context)))
+     (if (> $risk (risk-threshold))
+         (* 0.3 (/ (risk-threshold) $risk))  ;; Higher penalty for risky actions
+         1.0)))
+(= (risk-penalty $context (goal-candidate (goal $name $p $w)))
+   (if (is-risky-goal $name)
+       0.7  ;; Moderate penalty for risky goals
+       1.0))
+
+;; Estimate risk of an action
+(: estimate-risk (-> Symbol (List $a) Context Number))
+(= (estimate-risk attack $params $context) 0.8)  ;; High risk
+(= (estimate-risk explore $params $context) 0.5)  ;; Medium risk
+(= (estimate-risk wait $params $context) 0.1)     ;; Low risk
+(= (estimate-risk move $params $context) 0.2)     ;; Low risk
+(= (estimate-risk $other $params $context) 0.3)   ;; Default risk
+
+;; Check if a goal is risky
+(: is-risky-goal (-> Symbol Bool))
+(= (is-risky-goal dominate) True)
+(= (is-risky-goal conquer) True)
+(= (is-risky-goal attack-base) True)
+(= (is-risky-goal $other) False)
+
+;; =============================================================================
+;; Hard Constraints
+;; =============================================================================
+
+;; Safety constraint - hard veto on unsafe actions
+(= (safety-antigoal)
+   (anti-goal safety Hard safety-check))
+
+;; Safety check function - returns 0 for unsafe (veto), 1 for safe
+(: safety-check (-> Context Candidate Number))
+(= (safety-check $context (action-candidate (action $name $params)))
+   (if (is-unsafe-action $name $params $context)
+       0  ;; Veto
+       1))
+(= (safety-check $context (goal-candidate $goal))
+   1)  ;; Goals are checked at action level
+
+;; Check if an action is unsafe
+(: is-unsafe-action (-> Symbol (List $a) Context Bool))
+(= (is-unsafe-action self-destruct $params $context) True)
+(= (is-unsafe-action abandon-team $params $context) True)
+(= (is-unsafe-action $other $params $context) False)
+
+;; Ambiguity constraint - prevents actions with unclear outcomes
+(= (ambiguity-antigoal)
+   (anti-goal ambiguity Hard ambiguity-check))
+
+;; Ambiguity check function
+(: ambiguity-check (-> Context Candidate Number))
+(= (ambiguity-check $context (action-candidate (action $name $params)))
+   (if (is-ambiguous-action $name $params)
+       0  ;; Veto ambiguous actions
+       1))
+(= (ambiguity-check $context (goal-candidate $goal))
+   1)
+
+;; Check if an action is ambiguous
+(: is-ambiguous-action (-> Symbol (List $a) Bool))
+(= (is-ambiguous-action $name Nil) True)  ;; Actions without parameters are ambiguous
+(= (is-ambiguous-action unknown-cmd $params) True)
+(= (is-ambiguous-action $name $params) False)
+
+;; =============================================================================
+;; Anti-goal Application with Multiplicative Discouragement
+;; =============================================================================
+
+;; Apply a single anti-goal to a candidate
+(: apply-antigoal (-> AntiGoal Context Candidate Number))
+(= (apply-antigoal (anti-goal $name Hard $check-fn) $context $candidate)
+   ($check-fn $context $candidate))  ;; Hard constraints return 0 or 1
+
+(= (apply-antigoal (anti-goal $name Soft $penalty-fn) $context $candidate)
+   ($penalty-fn $context $candidate))  ;; Soft constraints return penalty factor [0,1]
+
+;; Apply multiple anti-goals with multiplicative combination
+(: apply-antigoals (-> (List AntiGoal) Context Candidate Number))
+(= (apply-antigoals Nil $context $candidate) 1.0)
+(= (apply-antigoals (Cons $antigoal $tail) $context $candidate)
+   (let* (($factor (apply-antigoal $antigoal $context $candidate))
+          ($rest-factors (apply-antigoals $tail $context $candidate)))
+     (* $factor $rest-factors)))  ;; Multiplicative combination
+
+;; Check if any hard constraint is violated (veto path)
+(: check-hard-constraints (-> (List AntiGoal) Context Candidate Bool))
+(= (check-hard-constraints Nil $context $candidate) True)
+(= (check-hard-constraints (Cons $antigoal $tail) $context $candidate)
+   (let ((anti-goal $name $severity $fn) $antigoal)
+     (if (== $severity Hard)
+         (if (== (apply-antigoal $antigoal $context $candidate) 0)
+             False  ;; Hard constraint violated - veto
+             (check-hard-constraints $tail $context $candidate))
+         (check-hard-constraints $tail $context $candidate))))
+
+;; Get all soft penalties for a candidate
+(: get-soft-penalties (-> (List AntiGoal) Context Candidate (List Number)))
+(= (get-soft-penalties Nil $context $candidate) Nil)
+(= (get-soft-penalties (Cons $antigoal $tail) $context $candidate)
+   (let ((anti-goal $name $severity $fn) $antigoal)
+     (if (== $severity Soft)
+         (Cons (apply-antigoal $antigoal $context $candidate)
+               (get-soft-penalties $tail $context $candidate))
+         (get-soft-penalties $tail $context $candidate))))
+
+;; =============================================================================
+;; Violation Tracking with Timestamps
+;; =============================================================================
+
+;; Violation tracking space
+!(bind! &violations (new-space))
+
+;; Record a violation with timestamp
+(: record-violation (-> AntiGoal Candidate Number Number ()))
+(= (record-violation $antigoal $candidate $penalty $timestamp)
+   (add-atom &violations
+     (violation $antigoal $candidate $penalty $timestamp)))
+
+;; Count violations for a specific anti-goal
+(: count-violations (-> AntiGoal Number))
+(= (count-violations $antigoal)
+   (count-matching-violations $antigoal (get-all-violations)))
+
+;; Helper to count violations
+(: count-matching-violations (-> AntiGoal (List Violation) Number))
+(= (count-matching-violations $antigoal Nil) 0)
+(= (count-matching-violations $antigoal (Cons (violation $ag $c $p $t) $tail))
+   (if (== $ag $antigoal)
+       (+ 1 (count-matching-violations $antigoal $tail))
+       (count-matching-violations $antigoal $tail)))
+
+;; Get all violations from space
+(: get-all-violations (-> (List Violation)))
+(= (get-all-violations)
+   (match &violations
+     (violation $ag $c $p $t)
+     (violation $ag $c $p $t)))
+
+;; Get recent violations within a time window
+(: get-recent-violations (-> Number Number (List Violation)))
+(= (get-recent-violations $start-time $end-time)
+   (filter-violations-by-time $start-time $end-time (get-all-violations)))
+
+;; Filter violations by time
+(: filter-violations-by-time (-> Number Number (List Violation) (List Violation)))
+(= (filter-violations-by-time $start $end Nil) Nil)
+(= (filter-violations-by-time $start $end (Cons (violation $ag $c $p $t) $tail))
+   (if (and (>= $t $start) (<= $t $end))
+       (Cons (violation $ag $c $p $t)
+             (filter-violations-by-time $start $end $tail))
+       (filter-violations-by-time $start $end $tail)))
+
+;; Get violation summary signals for feedback
+(: get-violation-summary (-> AntiGoal Number Number (Number Number)))
+(= (get-violation-summary $antigoal $start-time $end-time)
+   (let (($recent (get-recent-violations $start-time $end-time)))
+     (count-and-sum-penalties $antigoal $recent)))
+
+;; Count violations and sum penalties
+(: count-and-sum-penalties (-> AntiGoal (List Violation) (Number Number)))
+(= (count-and-sum-penalties $antigoal Nil) (0 0))
+(= (count-and-sum-penalties $antigoal (Cons (violation $ag $c $p $t) $tail))
+   (let (((tuple $count $sum) (count-and-sum-penalties $antigoal $tail)))
+     (if (== $ag $antigoal)
+         ((+ $count 1) (+ $sum $p))
+         ($count $sum))))
+
+;; =============================================================================
+;; Configuration and Tuning
+;; =============================================================================
+
+;; Default configuration with all anti-goals
+(= (default-antigoal-config)
+   (Cons (ag-config (energy-efficiency-antigoal) 1.0 True)
+   (Cons (ag-config (risk-avoidance-antigoal) 1.0 True)
+   (Cons (ag-config (safety-antigoal) 1.0 True)
+   (Cons (ag-config (ambiguity-antigoal) 1.0 True)
+   Nil)))))
+
+;; Get enabled anti-goals from configuration
+(: get-enabled-antigoals (-> (List AntiGoalConfig) (List AntiGoal)))
+(= (get-enabled-antigoals Nil) Nil)
+(= (get-enabled-antigoals (Cons (ag-config $ag $weight $enabled) $tail))
+   (if $enabled
+       (Cons $ag (get-enabled-antigoals $tail))
+       (get-enabled-antigoals $tail)))
+
+;; =============================================================================
+;; Decision Integration with Explainability
+;; =============================================================================
+
+;; Apply anti-goals to score with breakdown for explainability
+(: apply-antigoals-to-score (-> Number (List AntiGoal) Context Candidate
+                                (Number (List (Symbol Number)))))
+(= (apply-antigoals-to-score $base-score $antigoals $context $candidate)
+   (let* (($factors (collect-antigoal-factors $antigoals $context $candidate))
+          ($total-factor (multiply-factors $factors))
+          ($final-score (* $base-score $total-factor)))
+     ($final-score $factors)))
+
+;; Collect anti-goal factors with names for explainability
+(: collect-antigoal-factors (-> (List AntiGoal) Context Candidate (List (Symbol Number))))
+(= (collect-antigoal-factors Nil $context $candidate) Nil)
+(= (collect-antigoal-factors (Cons (anti-goal $name $sev $fn) $tail) $context $candidate)
+   (Cons ($name (apply-antigoal (anti-goal $name $sev $fn) $context $candidate))
+         (collect-antigoal-factors $tail $context $candidate)))
+
+;; Multiply a list of factors
+(: multiply-factors (-> (List (Symbol Number)) Number))
+(= (multiply-factors Nil) 1.0)
+(= (multiply-factors (Cons ($name $factor) $tail))
+   (* $factor (multiply-factors $tail)))
+
+;; =============================================================================
+;; Module Export
+;; =============================================================================
+
+;; Export main functions for use by other modules
+(= (antigoals-module-exports)
+   (list
+     apply-antigoals
+     check-hard-constraints
+     apply-antigoals-to-score
+     default-antigoal-config
+     get-enabled-antigoals
+     record-violation
+     count-violations
+     get-violation-summary
+     energy-efficiency-antigoal
+     risk-avoidance-antigoal
+     safety-antigoal
+     ambiguity-antigoal))

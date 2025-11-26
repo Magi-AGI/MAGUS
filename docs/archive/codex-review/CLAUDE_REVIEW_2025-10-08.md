@@ -1,0 +1,15 @@
+# MAGUS Review (2025-10-08)
+
+## Findings
+- **Overgoal still inactive** – In `Milestone_3/core/scoring-v2.metta:445-463` the placeholder `calculate-overgoal-score` always returns `0.0`, so `score-decision-v2` ignores goal-set synergy. Documentation and `test-anna-e2e-progression.py:538-552` assert the feature is fully functional, but they only print success messages; the score pipeline never consumes real weighted correlations.
+- **Weighted correlation inconsistency** – Legacy helper `get-weighted-correlation` and the spec keep using the arithmetic mean (`Milestone_2/goal-fitness-metrics/measurability/initial_measurability_calculation.metta:271-276`, `Metrics-Specification-v1.md:385-389`), while the new overgoal module multiplies by the geometric mean (`Milestone_3/core/overgoal.metta:24-30`). The two formulas disagree; docs, code, and tests need to converge on one definition.
+- **Grounded math not automatically loaded** – `overgoal.metta` calls `sqrt`/`pow`, but the module doesn’t register them. Only the new Python test manually installs `math_ext` (`test-anna-e2e-progression.py:33-42`). If someone invokes `get-weighted-correlation-for-overgoal` in MeTTa directly they still get unevaluated expressions. Either auto-register the grounded atoms when the module loads or document the required initialization.
+- **Test coverage and documentation drift** – `test-anna-e2e-progression.py` never asserts; it always returns `True`, so regressions won’t surface. Knowledge-repo docs still claim “31/31 tests passing” (`magi-knowledge-repo/docs/neoterics/MAGUS/MAGUS-Best-Practices.md:2-15`) while README reports 24 Python tests. Those numbers and confidence statements should be aligned once real assertions exist.
+- **Docs still describe old modulator schema** – Core framework doc continues to detail Psi activation/resolution/securing/selection formulas (`Core Framework Design Document (AM).md:352-424`) and the M2 report’s TC3.1 cites “Energy level 0.9” as a modulator. Live code now uses Bach’s six (pleasure, arousal, dominance; focus, resolution, exteroception), so the written specs/Test Results should be updated to match and drop the “energy level” pseudo-modulator.
+
+## Suggested Next Steps
+1. Implement the real overgoal wiring in `scoring-v2.metta`, feed it actual measurability/correlation data, and update the DecisionScore structure/explainability output accordingly.
+2. Pick one weighted-correlation formula (arithmetic vs geometric mean), update both helper implementations and the spec, and add assertions that verify the chosen math.
+3. Ensure grounded math atoms are registered as part of the standard initialization (e.g., import `math_ext` when loading MAGUS) or call out the requirement in README/knowledge docs.
+4. Convert the new progression script into an assertion-driven test, reconcile the reported test counts across README and knowledge repo, and retire or re-label the old urgency×importance narrative in the M2 report.
+5. Refresh the knowledge-repo materials (Core Framework doc, Milestone 2 report) so modulator/overgoal descriptions match the current implementation.

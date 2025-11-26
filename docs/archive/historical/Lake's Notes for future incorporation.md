@@ -1,0 +1,5 @@
+* Saltwater Games (see https://www.saltwatergames.com/)
+* Resurgence (see https://www.resurgence-game.io/)
+* ACT-R models (see https://en.wikipedia.org/wiki/ACT-R)
+* Cognitive Tutor (see https://en.wikipedia.org/wiki/Cognitive_tutor)
+* Cognitive Model (see https://en.wikipedia.org/wiki/Cognitive_model)

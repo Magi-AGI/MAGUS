@@ -1,0 +1,5 @@
+configuration,total_scenarios,goal_satisfaction_mean,hard_violations_total,soft_violations_total,decision_latency_mean,metagoal_contribution_mean,antigoal_penalty_mean,plan_length_mean
+full-system,3,0.8000000000000002,0,15,15.0,0.20000000000000004,0.3,3.0
+no-metagoals,3,0.6,0,15,15.0,0.20000000000000004,0.3,3.0
+no-antigoals,3,0.6,6,3,15.0,0.20000000000000004,0.3,3.0
+baseline-m2,3,0.6,0,15,15.0,0.20000000000000004,0.3,3.0

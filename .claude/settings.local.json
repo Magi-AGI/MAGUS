@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "mcp__magi-archive__get_card",
+      "Bash(cat:*)",
+      "mcp__magi-archive__create_card",
+      "mcp__magi-archive__search_cards"
     ],
     "deny": [],
     "ask": []

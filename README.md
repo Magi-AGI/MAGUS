@@ -2,6 +2,8 @@
 
 **Experimental MeTTa implementation of goal-driven decision making for AGI systems**
 
+> **Provenance:** This repository was migrated from an internal GitLab source on 2026-04-17. The `main` branch contains the M2/M3/M4 development history (previously on the `LLM_Tutorial` branch upstream). The `legacy-main` branch preserves the original three-commit prototype for historical reference. Licensed GPL-3.0.
+
 ## Project Status: ✅ M2/M3/M4 Complete (October 2025)
 
 All milestones implemented and validated:
